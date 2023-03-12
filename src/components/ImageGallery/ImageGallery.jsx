@@ -23,5 +23,4 @@ ImageGallery.propTypes = {
   onClick: PropTypes.func.isRequired,
 };
 
-
 export default ImageGallery;

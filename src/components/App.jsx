@@ -1,144 +1,99 @@
-import React from 'react';
-
+import React, { useState, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { getSearchItem } from '../services/getSearchItem';
 
-import Searchbar from './Searchbar/Searchbar';
+import { Searchbar } from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Loader from './Loader/Loader';
 import Button from './Button/Button';
-import Modal from './Modal/Modal';
+import { Modal } from './Modal/Modal';
 
 import { Container } from './App.styled';
 
-class App extends React.Component {
-  state = {
-    searchName: '',
-    searchItem: [],
-    error: null,
-    status: 'idle',
-    page: 1,
-    totalPages: 0,
-    showModal: false,
-    modalImage: {
-      url: '',
-      alt: '',
-    },
-  };
+export default function App() {
+  const [searchItem, setSearchItem] = useState([]);
+  const [searchName, setSearchName] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [modalImage, setModalImage] = useState({ url: '', alt: '' });
 
-  componentDidUpdate(prevProps, prevState) {
-    const { page, searchItem, searchName } = this.state;
-    const prevQueryValue = prevState.searchName;
-    const currentQueryValue = searchName;
+  const abortController = useRef();
 
-    if (prevQueryValue !== currentQueryValue || prevState.page !== page) {
+  useEffect(() => {
+    const showNotification = data => {
+      if (data.hits.length === 0) {
+        toast.error(`There is't result with search name ${searchName}`);
+      }
+    };
+
+    if (searchName !== '') {
       try {
-        this.setState({ status: 'pending' });
-
-        getSearchItem(searchName, page).then(data => {
-          this.showNotification(data);
-
-          this.setState({
-            searchItem: [...searchItem, ...data.hits],
-            status: 'resolved',
-            totalPages: Math.floor(data.totalHits / 12),
-          });
+        setIsLoading(true);
+        getSearchItem(searchName, page, abortController).then(data => {
+          showNotification(data);
+          setSearchItem(prevSearchItem => [...prevSearchItem, ...data.hits]);
+          setIsLoading(false);
+          setTotalPages(Math.floor(data.totalHits / 12));
         });
       } catch (error) {
-        this.setState({ error: true });
         toast.error('Oops, something went wrong');
         console.log(error);
       }
     }
-  }
+  }, [searchName, page]);
 
-  showNotification = data => {
-    if (data.hits.length === 0) {
-      toast.error(
-        `There is't result with search name ${this.state.searchName}`
-      );
-    }
+  const handleFormSubmit = searchName => {
+    setSearchName(searchName);
+    setPage(1);
+    setSearchItem([]);
   };
 
-  handleFormSubmit = searchName => {
-    this.setState({
-      searchName: searchName,
-      searchItem: [],
-      page: 1,
-    });
+  const handleLoad = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  handleLoad = () => {
-    this.setState(prev => ({ page: prev.page + 1 }));
-  };
-
-  handleImageClick = image => {
+  const handleImageClick = image => {
     const { largeImageURL, tags } = image;
-
-    this.setState({
-      status: 'pending',
-      showModal: true,
-      modalImage: {
-        url: largeImageURL,
-        alt: tags,
-      },
+    setIsLoading(true);
+    setShowModal(true);
+    setModalImage({
+      url: largeImageURL,
+      alt: tags,
     });
   };
 
-  handleModalClose = () => {
-    this.setState({
-      showModal: false,
-      status: 'idle',
-    });
+  const handleModalClose = () => {
+    setIsLoading(false);
+    setShowModal(false);
   };
 
-  handleModalImageLoading = () => {
-    this.setState({
-      status: 'resolved',
-    });
+  const handleModalImageLoading = () => {
+    setIsLoading(false);
   };
 
-  render() {
-    const {
-      searchName,
-      searchItem,
-      status,
-      page,
-      totalPages,
-      showModal,
-      modalImage,
-    } = this.state;
-    return (
-      <Container>
-        <Searchbar onSubmit={this.handleFormSubmit} />
-        <ImageGallery searchItem={searchItem} onClick={this.handleImageClick} />
-        {status === 'pending' && <Loader />}
+  return (
+    <Container>
+      <Searchbar onSubmit={handleFormSubmit} />
+      <ImageGallery searchItem={searchItem} onClick={handleImageClick} />
+      {isLoading && <Loader />}
 
-        {status === 'rejected' && (
-          <div>
-            <p>No result of searching {searchName}</p>
-          </div>
-        )}
+      {searchItem.length > 0 && !isLoading && page <= totalPages && (
+        <Button text="Load more" onClick={handleLoad}></Button>
+      )}
 
-        {searchItem.length > 0 &&
-          status !== 'pending' &&
-          page <= totalPages && (
-            <Button text="Load more" onClick={this.handleLoad}></Button>
-          )}
-
-        {showModal && (
-          <Modal
-            image={modalImage}
-            onClose={this.handleModalClose}
-            onLoad={this.handleModalImageLoading}
-          />
-        )}
-        <ToastContainer autoClose={3000} />
-      </Container>
-    );
-  }
+      {showModal && (
+        <Modal
+          image={modalImage}
+          onClose={handleModalClose}
+          onLoad={handleModalImageLoading}
+        />
+      )}
+      <ToastContainer autoClose={3000} />
+    </Container>
+  );
 }
-
-export default App;
