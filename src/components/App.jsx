@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { nanoid } from 'nanoid';
 
 import { getSearchItem } from '../services/getSearchItem';
 
@@ -21,6 +22,7 @@ export default function App() {
   const [totalPages, setTotalPages] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [modalImage, setModalImage] = useState({ url: '', alt: '' });
+  const [reqId, setReqId] = useState(null);
 
   const abortController = useRef();
 
@@ -45,9 +47,10 @@ export default function App() {
         console.log(error);
       }
     }
-  }, [searchName, page]);
+  }, [searchName, page, reqId]);
 
   const handleFormSubmit = searchName => {
+    setReqId(nanoid());
     setSearchName(searchName);
     setPage(1);
     setSearchItem([]);
